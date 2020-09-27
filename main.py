@@ -10,6 +10,7 @@ import time
 import math
 import warnings
 import models
+from helpers import StanfordCarsDataLoader
 from utils import convert_model, measure_model
 
 parser = argparse.ArgumentParser(description='PyTorch Condensed Convolutional Networks')
@@ -87,6 +88,8 @@ if args.data == 'cifar10':
     args.num_classes = 10
 elif args.data == 'cifar100':
     args.num_classes = 100
+elif args.data == 'stanford_cars':
+    args.num_classes = 196
 else:
     args.num_classes = 1000
 
@@ -115,6 +118,8 @@ def main():
     print(model)
     if args.data in ['cifar10', 'cifar100']:
         IMAGE_SIZE = 32
+    elif args.data in ['stanford_cars']:
+        IMAGE_SIZE = 227
     else:
         IMAGE_SIZE = 224
     n_flops, n_params = measure_model(model, IMAGE_SIZE, IMAGE_SIZE)
@@ -200,6 +205,15 @@ def main():
                                        transforms.ToTensor(),
                                        normalize,
                                    ]))
+    elif args.data == "stanford_cars":
+        config = {
+            'imgsize': 227,
+            'batch_size': args.batch_size,
+            'test_batch_size': args.batch_size,
+            'version': 2,
+        }
+        train_set, val_set = StanfordCarsDataLoader.prepare_set(config)
+
     else:
         traindir = os.path.join(args.data, 'train')
         valdir = os.path.join(args.data, 'val')
@@ -282,7 +296,16 @@ def train(train_loader, model, criterion, optimizer, epoch):
     running_lr = None
 
     end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+
+    # for b, loader_data in enumerate(data_loader.train_loader):
+    #     # for loader_data in data_loader.train_loader:
+    #     X_train = loader_data[train_data_index]
+    #     y_train = loader_data[target_data_index]
+
+    #for i, (input, target) in enumerate(train_loader):
+    for i, loader_data in enumerate(train_loader):
+        input = loader_data[0]
+        target = loader_data[1]
         progress = float(epoch * len(train_loader) + i) / \
             (args.epochs * len(train_loader))
         args.progress = progress
@@ -348,7 +371,10 @@ def validate(val_loader, model, criterion):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
+    # for i, (input, target) in enumerate(val_loader):
+    for i, loader_data in enumerate(val_loader):
+        input = loader_data[0]
+        target = loader_data[1]
         target = target.cuda(non_blocking=True)
         input_var = torch.autograd.Variable(input, volatile=True)
         target_var = torch.autograd.Variable(target, volatile=True)
